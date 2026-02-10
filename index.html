@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ITASEC26 - Agenda</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; margin: 0; }
+        header { background: #1b4778; color: white; padding: 15px 20px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .day-selector { display: flex; gap: 10px; overflow-x: auto; padding: 10px 0; }
+        .day-btn { background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 20px; border-radius: 20px; cursor: pointer; white-space: nowrap; transition: 0.3s; }
+        .day-btn:hover, .day-btn.active { background: white; color: #1b4778; font-weight: bold; }
+        .kanban-board { display: flex; overflow-x: auto; padding: 20px; gap: 20px; height: calc(100vh - 120px); align-items: flex-start; }
+        .time-column { min-width: 350px; max-width: 350px; background: #e9ecef; border-radius: 10px; display: flex; flex-direction: column; max-height: 100%; border: 1px solid #dee2e6; }
+        .column-header { background: white; padding: 15px; border-radius: 10px 10px 0 0; font-weight: 800; font-size: 1.2rem; color: #1b4778; border-bottom: 2px solid #1b4778; display: flex; align-items: center; gap: 10px; }
+        .column-body { padding: 15px; overflow-y: auto; flex-grow: 1; }
+        .event-card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 5px solid #ccc; cursor: pointer; transition: transform 0.2s; }
+        .event-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .card-type { font-size: 0.7rem; text-transform: uppercase; font-weight: bold; color: #666; margin-bottom: 5px; display: block; }
+        .card-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; line-height: 1.3; color: #222; }
+        .card-location { background: #f8f9fa; border: 1px solid #e9ecef; color: #495057; padding: 8px; border-radius: 6px; font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+        .card-location i { color: #dc3545; }
+        .card-info { margin-top: 10px; font-size: 0.85rem; color: #666; border-top: 1px dashed #ddd; padding-top: 8px; }
+        
+        /* Stile area caricamento manuale (fallback) */
+        #manual-load { display: none; text-align: center; padding: 50px; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="m-0"><i class="fa-solid fa-clock me-2"></i>ITASEC26</h4>
+            <label class="btn btn-sm btn-outline-light" style="cursor:pointer">
+                <i class="fa-solid fa-folder-open"></i> Carica File
+                <input type="file" id="fileInput" accept=".html" style="display: none;">
+            </label>
+        </div>
+        <div id="day-tabs" class="day-selector"></div>
+    </header>
+
+    <div id="board" class="kanban-board">
+        <div class="text-center w-100 mt-5 text-muted">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Caricamento <b>content_itasec.html</b>...</p>
+        </div>
+    </div>
+
+    <div id="manual-load">
+        <div class="alert alert-warning d-inline-block text-start" style="max-width: 600px;">
+            <h5><i class="fa-solid fa-triangle-exclamation"></i> Impossibile caricare automaticamente</h5>
+            <p>Il browser ha bloccato l'accesso diretto al file <code>content_itasec.html</code> per sicurezza (CORS).</p>
+            <hr>
+            <strong>Due soluzioni:</strong>
+            <ol>
+                <li>Usa il pulsante <b>"Carica File"</b> in alto a destra e seleziona <code>content_itasec.html</code>.</li>
+                <li>Oppure avvia un server Python su Termux: <code>python3 -m http.server</code> e apri <code>localhost:8000</code>.</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const board = document.getElementById('board');
+            const dayTabs = document.getElementById('day-tabs');
+            const fileInput = document.getElementById('fileInput');
+            const manualLoadDiv = document.getElementById('manual-load');
+            
+            let agendaData = {};
+
+            // Tenta di caricare automaticamente il file
+            fetch('content_itasec.html')
+                .then(response => {
+                    if (!response.ok) throw new Error("File non trovato o errore server");
+                    return response.text();
+                })
+                .then(html => {
+                    parseHTML(html);
+                })
+                .catch(err => {
+                    console.error("Fetch fallito:", err);
+                    board.style.display = 'none';
+                    manualLoadDiv.style.display = 'block';
+                });
+
+            // Gestione caricamento manuale (Fallback)
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    parseHTML(e.target.result);
+                    manualLoadDiv.style.display = 'none';
+                    board.style.display = 'flex';
+                };
+                reader.readAsText(file);
+            });
+
+            function parseHTML(htmlString) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlString, 'text/html');
+                const days = doc.querySelectorAll('#agenda > div.mb-5');
+                
+                if(days.length === 0) {
+                    alert("Struttura HTML non valida nel file caricato.");
+                    return;
+                }
+
+                agendaData = {}; // Reset
+
+                days.forEach(dayBlock => {
+                    const h3 = dayBlock.querySelector('h3');
+                    if(!h3) return;
+                    const dayName = h3.textContent.replace(/^\W+/, '').trim();
+                    agendaData[dayName] = {};
+
+                    const cols = dayBlock.querySelectorAll('.agenda-room-col');
+                    cols.forEach(col => {
+                        const locHeader = col.querySelector('.location-header');
+                        let location = locHeader ? locHeader.textContent.trim().replace(/^[\W\s]+/, '') : "N/A";
+
+                        col.querySelectorAll('.session-card').forEach(card => {
+                            const header = card.querySelector('.session-card-header');
+                            if(!header) return;
+
+                            const color = header.style.borderLeftColor || '#1b4778';
+                            const type = header.querySelector('.mt-2 .badge')?.textContent.trim() || 'Session';
+                            const titleEl = header.querySelector('.session-title');
+                            const title = titleEl ? titleEl.textContent.trim() : 'No Title';
+                            const link = titleEl?.querySelector('a')?.href || null;
+
+                            let timeStr = "";
+                            header.querySelectorAll('.session-time .badge').forEach(b => { 
+                                if(b.textContent.includes(':')) timeStr = b.textContent.trim(); 
+                            });
+
+                            if(timeStr) {
+                                const [start, end] = timeStr.split('-').map(t => t.trim());
+                                const contentDiv = card.querySelector('.session-card-content');
+                                let content = "";
+                                if(contentDiv) {
+                                    const t = document.createElement('div');
+                                    t.innerHTML = contentDiv.innerHTML;
+                                    t.querySelectorAll('button').forEach(b => b.remove());
+                                    content = t.innerHTML;
+                                }
+
+                                const event = { title, link, location, start, end, type, color, content };
+                                if(!agendaData[dayName][start]) agendaData[dayName][start] = [];
+                                agendaData[dayName][start].push(event);
+                            }
+                        });
+                    });
+                });
+                renderApp();
+            }
+
+            function renderApp() {
+                const days = Object.keys(agendaData);
+                dayTabs.innerHTML = '';
+                if(days.length === 0) return;
+
+                days.forEach((day, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = `day-btn ${idx === 0 ? 'active' : ''}`;
+                    btn.textContent = day;
+                    btn.onclick = () => loadDay(day, btn);
+                    dayTabs.appendChild(btn);
+                });
+                loadDay(days[0], dayTabs.children[0]);
+            }
+
+            window.loadDay = (day, btn) => {
+                document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+                if(btn) btn.classList.add('active');
+                board.innerHTML = '';
+                
+                const times = Object.keys(agendaData[day]).sort();
+                if(times.length === 0) {
+                    board.innerHTML = '<div class="alert alert-info m-5">Nessun evento.</div>';
+                    return;
+                }
+
+                times.forEach(time => {
+                    const col = document.createElement('div');
+                    col.className = 'time-column';
+                    col.innerHTML = `<div class="column-header"><i class="fa-regular fa-clock"></i> ${time}</div><div class="column-body"></div>`;
+                    const body = col.querySelector('.column-body');
+                    
+                    agendaData[day][time]
+                        .sort((a,b) => a.location.localeCompare(b.location))
+                        .forEach(ev => {
+                            const card = document.createElement('div');
+                            card.className = 'event-card';
+                            card.style.borderLeftColor = ev.color;
+                            if(ev.link) card.onclick = () => window.open(ev.link, '_blank');
+
+                            let html = `
+                                <span class="card-type" style="color:${ev.color}">${ev.type}</span>
+                                <div class="card-title">${ev.title}</div>
+                                <div class="card-location"><i class="fa-solid fa-location-dot"></i> ${ev.location}</div>
+                                <div class="text-muted small mt-2"><i class="fa-solid fa-stopwatch me-1"></i>Fine: ${ev.end}</div>
+                            `;
+                            if(ev.content) html += `<div class="card-info">${ev.content}</div>`;
+                            card.innerHTML = html;
+                            body.appendChild(card);
+                        });
+                    board.appendChild(col);
+                });
+            };
+        });
+    </script>
+</body>
+</html>
